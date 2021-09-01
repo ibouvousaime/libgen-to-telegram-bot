@@ -4,6 +4,7 @@ import requests
 from urllib.parse import urlparse
 from telethon import TelegramClient, events
 import dotenv
+import asyncio
 dotenv.load()
 api_id = dotenv.get('api_id')
 api_hash = dotenv.get('api_hash')
@@ -35,7 +36,6 @@ def getResultsText(results):
         index += 1
     return textRes
 
-botClient = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
 
 def is_integer(n):
     try:
@@ -43,6 +43,7 @@ def is_integer(n):
         return True
     except ValueError:
         return False
+botClient = TelegramClient('bot', api_id, api_hash, sequential_updates= False).start(bot_token=bot_token)
 
 async def fetchAndSendBooks(input, sender, chatID, messageToEditID):
     books = getBooks(input, sender)
@@ -63,7 +64,9 @@ async def onEdit(event):
 @botClient.on(events.NewMessage(incoming=True))
 async def onMessage(event):
     message = event.raw_text
-    if is_integer(message) and int(message) > 0 and int(message) <= result_limit:
+    if message.startswith("/"):
+        print("a command")
+    elif is_integer(message) and int(message) > 0 and int(message) <= result_limit:
         url = currentResults[event.sender.id][int(message) - 1]["Link"]
         a = urlparse(url)
         file = requests.get(url)
@@ -76,5 +79,7 @@ async def onMessage(event):
         lastestRequest[event.sender.id] = dict ({"recievedMessage" : event.id, "sentMessageID": response.id})
         await fetchAndSendBooks(message, event.sender.id, event.chat_id, response.id)
     
-botClient.start()
-botClient.run_until_disconnected()
+async def main():
+    await botClient.disconnected
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main())
