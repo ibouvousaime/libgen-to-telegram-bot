@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from telethon import TelegramClient, events
 import dotenv
 import asyncio
+from promise import Promise
 dotenv.load()
 api_id = dotenv.get('api_id')
 api_hash = dotenv.get('api_hash')
@@ -50,11 +51,11 @@ async def fetchAndSendBooks(input, sender, chatID, messageToEditID):
     results = getResultsText(books)
     #await botClient.edit_message(event.chat_id, response,"Found")
     if len(books) == 0:
-        await botClient.edit_message(chatID, messageToEditID,"No results found.")
+        botClient.edit_message(chatID, messageToEditID,"No results found.").then()
     else:
         await botClient.edit_message(chatID, messageToEditID, results)
 
-@botClient.on(events.MessageEdited(incoming=True))
+@botClient.on(events.MessageEdited())
 async def onEdit(event):
     if lastestRequest[event.sender.id]["recievedMessage"] == event.message.id:
         editNotification = await botClient.send_message(event.chat_id, "Edit detected, hold on.")
@@ -65,7 +66,10 @@ async def onEdit(event):
 async def onMessage(event):
     message = event.raw_text
     if message.startswith("/"):
-        print("a command")
+        if message == "/start":
+            await event.reply("Welcome!")
+        else:
+            await event.reply("Unsupported command.")
     elif is_integer(message) and int(message) > 0 and int(message) <= result_limit:
         url = currentResults[event.sender.id][int(message) - 1]["Link"]
         a = urlparse(url)
@@ -78,8 +82,12 @@ async def onMessage(event):
         print(message)
         lastestRequest[event.sender.id] = dict ({"recievedMessage" : event.id, "sentMessageID": response.id})
         await fetchAndSendBooks(message, event.sender.id, event.chat_id, response.id)
-    
+
+
 async def main():
     await botClient.disconnected
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
+
+
+if __name__ == '__main__':
+    print("Running...")
+    loop = asyncio.get_event_loop().run_until_complete(main())
